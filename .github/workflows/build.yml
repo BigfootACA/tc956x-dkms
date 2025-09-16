@@ -30,6 +30,66 @@ jobs:
           CONFIG_TC956X_PCIE_GEN3_SETTING=y \
           CONFIG_TC956X_IOCTL_REG_RD_WR_ENABLE=y
 
+  test-archlinux-lts66:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+    - name: Install Dependencies
+      run: |
+        pacman-key --init
+        cat <<EOF >> /etc/pacman.conf
+        [renegade-project]
+        Server = https://mirror.renegade-project.tech/arch/\$arch
+        SigLevel = Never
+        EOF
+        pacman -Syu --noconfirm --needed git linux-lts66 linux-lts66-headers
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: tc956x-dkms
+    - name: Build Module
+      working-directory: tc956x-dkms
+      run: |
+        KERNEL_SOURCE_DIR=$(pacman -Qql linux-lts66-headers | grep -m 1 -Eo ".*/lib/modules/[^/]+/build")
+        KERNELRELEASE=$(echo -n "$KERNEL_SOURCE_DIR" | sed 's/.*\/lib\/modules\///g;s/\/build//')
+        make -j$(nproc) KERNELRELEASE=$KERNELRELEASE -C $KERNEL_SOURCE_DIR M=$(pwd)/drivers/net/ethernet/toshiba/tc956x \
+          CONFIG_TC956X_NET=m \
+          CONFIG_TC956X_PF=y \
+          CONFIG_TC956X_VF=n \
+          CONFIG_TC956X_PCIE_GEN3_SETTING=y \
+          CONFIG_TC956X_IOCTL_REG_RD_WR_ENABLE=y
+
+  test-archlinux-lts61:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+    - name: Install Dependencies
+      run: |
+        pacman-key --init
+        cat <<EOF >> /etc/pacman.conf
+        [renegade-project]
+        Server = https://mirror.renegade-project.tech/arch/\$arch
+        SigLevel = Never
+        EOF
+        pacman -Syu --noconfirm --needed git linux-lts61 linux-lts61-headers
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: tc956x-dkms
+    - name: Build Module
+      working-directory: tc956x-dkms
+      run: |
+        KERNEL_SOURCE_DIR=$(pacman -Qql linux-lts61-headers | grep -m 1 -Eo ".*/lib/modules/[^/]+/build")
+        KERNELRELEASE=$(echo -n "$KERNEL_SOURCE_DIR" | sed 's/.*\/lib\/modules\///g;s/\/build//')
+        make -j$(nproc) KERNELRELEASE=$KERNELRELEASE -C $KERNEL_SOURCE_DIR M=$(pwd)/drivers/net/ethernet/toshiba/tc956x \
+          CONFIG_TC956X_NET=m \
+          CONFIG_TC956X_PF=y \
+          CONFIG_TC956X_VF=n \
+          CONFIG_TC956X_PCIE_GEN3_SETTING=y \
+          CONFIG_TC956X_IOCTL_REG_RD_WR_ENABLE=y
+
   test-archlinux:
     runs-on: ubuntu-latest
     container:
