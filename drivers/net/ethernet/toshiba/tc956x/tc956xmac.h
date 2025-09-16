@@ -1330,14 +1330,24 @@ int tc956xmac_cleanup_debugfs(struct net_device *net_device);
 int genphy_c45_read_eee_adv_local(struct phy_device *phydev, unsigned long *adv);
 int genphy_c45_eee_is_active_local(struct phy_device *phydev, unsigned long *adv,
 			     unsigned long *lp, bool *is_enabled);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+int genphy_c45_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_keee *data);
+int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_keee *data);
+int phylink_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_keee *eee);
+#else
 int genphy_c45_ethtool_get_eee_local(struct phy_device *phydev,
 			       struct ethtool_eee *data);
 int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee *data);
 int phylink_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee *eee);
 #endif
+#endif
 
 #ifdef TC956X_5_G_2_5_G_EEE_SUPPORT
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+extern int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_keee *data);
+#else
 extern int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_eee *data);
+#endif
 #endif
 #endif
 

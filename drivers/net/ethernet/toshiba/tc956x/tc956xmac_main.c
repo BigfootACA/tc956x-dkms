@@ -349,7 +349,11 @@ static void tc956xmac_exit_fs(struct net_device *dev);
 #endif
 #endif /* TC956X_SRIOV_PF */
 #ifdef TC956X_5_G_2_5_G_EEE_SUPPORT
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+extern int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_keee *data);
+#else
 extern int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_eee *data);
+#endif
 #endif
 #ifdef TC956X_SRIOV_PF
 extern struct tx956x_shrd_mem tx956x_pci_shrd_mem[TC956X_TOT_CASCADE_DEV];
@@ -2996,6 +3000,54 @@ static void tc956xmac_mac_flow_ctrl(struct tc956xmac_priv *priv, u32 duplex)
 			priv->pause, tx_cnt);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
+static unsigned long tc956xmac_get_caps(struct phylink_config *config,
+	phy_interface_t interface)
+{
+	struct tc956xmac_priv *priv = netdev_priv(to_net_dev(config->dev));
+	unsigned long caps = MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+	int max_speed = priv->plat->max_speed;
+
+	caps |= MAC_10HD | MAC_10FD | MAC_100HD | MAC_100FD | 
+		MAC_1000HD | MAC_1000FD;
+
+	if (priv->plat->port_interface == ENABLE_USXGMII_INTERFACE) {
+		caps &= ~(MAC_10HD | MAC_10FD | MAC_100HD | MAC_100FD | 
+			MAC_1000HD | MAC_1000FD);
+	}
+
+	if (priv->plat->port_interface == ENABLE_USXGMII_5G_INTERFACE) {
+		caps &= ~MAC_10000FD;
+	}
+
+	if (priv->plat->port_interface == ENABLE_USXGMII_2_5G_INTERFACE) {
+		caps &= ~(MAC_10000FD | MAC_5000FD);
+	}
+
+	if ((max_speed > 0) && (max_speed < 1000)) {
+		caps &= ~MAC_1000FD;
+	} else if (priv->plat->has_xgmac) {
+		if (!max_speed || (max_speed >= 2500))
+			caps |= MAC_2500FD;
+		if (!max_speed || (max_speed >= 5000))
+			caps |= MAC_5000FD;
+		if (!max_speed || (max_speed >= 10000))
+			caps |= MAC_10000FD;
+	}
+
+	if (priv->plat->tx_queues_to_use > 1) {
+#ifdef TC956X
+		caps &= ~(MAC_10HD | MAC_100HD | MAC_1000HD);
+#else
+		caps &= ~(MAC_10HD | MAC_100HD);
+#endif
+	}
+
+	return caps;
+}
+
+#else
+
 static void tc956xmac_validate(struct phylink_config *config,
 			    unsigned long *supported,
 			    struct phylink_link_state *state)
@@ -3098,6 +3150,7 @@ static void tc956xmac_validate(struct phylink_config *config,
 	bitmap_andnot(state->advertising, state->advertising, mask,
 			__ETHTOOL_LINK_MODE_MASK_NBITS);
 }
+#endif
 #endif  /* TC956X_SRIOV_VF */
 
 #ifndef TC956X_SRIOV_VF
@@ -4455,7 +4508,11 @@ static void tc956xmac_mac_link_up(struct phylink_config *config,
 }
 
 static const struct phylink_mac_ops tc956xmac_phylink_mac_ops = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
+	.mac_get_caps = tc956xmac_get_caps,
+#else
 	.validate = tc956xmac_validate,
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	.mac_pcs_get_state = tc956xmac_mac_pcs_get_state,
@@ -4591,7 +4648,11 @@ static int tc956xmac_init_phy(struct net_device *dev)
 	int ret;
 	struct phy_device *phydev = NULL;
 	int addr = priv->plat->phy_addr;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+	struct ethtool_keee edata;
+#else
 	struct ethtool_eee edata;
+#endif
 
 	node = priv->plat->phylink_node;
 
@@ -4668,7 +4729,11 @@ static int tc956xmac_init_phy(struct net_device *dev)
 	}
 	/* Enable or disable EEE Advertisement based on eee_enabled settings which might be set using module param */
 	edata.eee_enabled = priv->eee_enabled;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+	linkmode_zero(edata.advertised);
+#else
 	edata.advertised = 0;
+#endif
 
 	if (priv->phylink) {
 		if ((priv->plat->interface != PHY_INTERFACE_MODE_RGMII) &&
@@ -10254,7 +10319,11 @@ static void tc956xmac_poll_controller(struct net_device *dev)
 int tc956xmac_rx_parser_configuration(struct tc956xmac_priv *priv)
 {
 	int ret = -EINVAL, re_init_eee = 0, dly_cnt = 0, ret_val;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+	struct ethtool_keee edata;
+#else
 	struct ethtool_eee edata;
+#endif
 
 #ifndef TC956X_SRIOV_VF
 	/* Disable EEE before configuring FRP */
@@ -15321,7 +15390,11 @@ static void parse_config_file(uint8_t port_id, uint8_t dev_id)
 		}
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+	kvfree(data);
+#else
 	vfree(data);
+#endif
 	KPRINT_INFO("<--%s", __func__);
 }
 #endif

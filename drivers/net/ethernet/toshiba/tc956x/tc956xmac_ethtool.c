@@ -94,7 +94,13 @@ extern void tc956x_filter_debug(struct tc956xmac_priv *priv);
 #endif
 #ifndef TC956X_SRIOV_VF
 void tc956xmac_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+int tc956xmac_ethtool_op_get_eee(struct net_device *dev, struct ethtool_keee *edata);
+#else
 int tc956xmac_ethtool_op_get_eee(struct net_device *dev, struct ethtool_eee *edata);
+#endif
+
 #endif
 #ifdef TC956X_5_G_2_5_G_EEE_SUPPORT
 #define TC956X_ADVERTISED_2500baseT_Full ETHTOOL_LINK_MODE_2500baseT_Full_BIT
@@ -1732,7 +1738,11 @@ int genphy_c45_eee_is_active_local(struct phy_device *phydev, unsigned long *adv
  * capabilities.
  */
 int genphy_c45_ethtool_get_eee_local(struct phy_device *phydev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+			       struct ethtool_keee *data)
+#else
 			       struct ethtool_eee *data)
+#endif
 {
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(adv) = {};
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(lp) = {};
@@ -1746,6 +1756,11 @@ int genphy_c45_ethtool_get_eee_local(struct phy_device *phydev,
 	data->eee_enabled = is_enabled;
 	data->eee_active = ret;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+	linkmode_copy(data->supported, phydev->supported_eee);
+	linkmode_copy(data->advertised, adv);
+	linkmode_copy(data->lp_advertised, lp);
+#else
 	if (!ethtool_convert_link_mode_to_legacy_u32(&data->supported,
 						     phydev->supported_eee))
 		overflow = true;
@@ -1753,7 +1768,7 @@ int genphy_c45_ethtool_get_eee_local(struct phy_device *phydev,
 		overflow = true;
 	if (!ethtool_convert_link_mode_to_legacy_u32(&data->lp_advertised, lp))
 		overflow = true;
-
+#endif
 	if (overflow)
 		phydev_warn(phydev, "Not all supported or advertised EEE link modes were passed to the user space\n");
 
@@ -1768,7 +1783,11 @@ int genphy_c45_ethtool_get_eee_local(struct phy_device *phydev,
  * Description: it reportes the Supported/Advertisement/LP Advertisement
  * capabilities.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_keee *data)
+#else
 int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee *data)
+#endif
 {
 	int ret;
 
@@ -1787,7 +1806,11 @@ int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee *dat
  * @pl: a pointer to a &struct phylink returned from phylink_create()
  * @eee: a pointer to a &struct ethtool_eee for the read parameters
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+int phylink_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_keee *eee)
+#else
 int phylink_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee *eee)
+#endif
 {
 	int ret = -EOPNOTSUPP;
 
@@ -1800,7 +1823,11 @@ int phylink_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee 
 }
 #endif
 #ifdef DEBUG_EEE
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_keee *data)
+#else
 int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee *data)
+#endif
 {
 	int val;
 
@@ -1843,7 +1870,11 @@ int phy_ethtool_get_eee_local(struct phy_device *phydev, struct ethtool_eee *dat
 
 	return 0;
 }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+int phy_ethtool_set_eee_local(struct phy_device *phydev, struct ethtool_keee *data)
+#else
 int phy_ethtool_set_eee_local(struct phy_device *phydev, struct ethtool_eee *data)
+#endif
 {
 	int cap, old_adv, adv = 0, ret;
 #ifdef TC956X_5_G_2_5_G_EEE_SUPPORT
@@ -1934,6 +1965,19 @@ int phy_ethtool_set_eee_local(struct phy_device *phydev, struct ethtool_eee *dat
 
 #ifdef TC956X_5_G_2_5_G_EEE_SUPPORT
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+static inline u16 tc956x_ethtool_adv_to_mmd_eee_adv2_t(const unsigned long *adv)
+{
+	u16 reg = 0;
+
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, adv))
+		reg |= MDIO_EEE_2_5GT;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_5000baseT_Full_BIT, adv))
+		reg |= MDIO_EEE_5GT;
+
+	return reg;
+}
+#else
 static inline u16 tc956x_ethtool_adv_to_mmd_eee_adv2_t(u32 adv)
 {
 	u16 reg = 0;
@@ -1945,8 +1989,13 @@ static inline u16 tc956x_ethtool_adv_to_mmd_eee_adv2_t(u32 adv)
 
 	return reg;
 }
+#endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_keee *data)
+#else
 int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_eee *data)
+#endif
 {
 	int ret;
 	int cap2p5, old_adv_2p5, adv_2p5 = 0;
@@ -1965,10 +2014,31 @@ int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_eee *data)
 		return old_adv_2p5;
 	/* EEE advertise checking API corrected for 2.5G and 5G speeds. */
 	if (data->eee_enabled) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,15,0)
+		adv_2p5 = tc956x_ethtool_adv_to_mmd_eee_adv2_t(data->advertised) & cap2p5;
+		/* Mask prohibited EEE modes */
+		adv_2p5 &= ~(tc956x_ethtool_adv_to_mmd_eee_adv2_t(phydev->eee_disabled_modes));
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+		adv_2p5 = tc956x_ethtool_adv_to_mmd_eee_adv2_t(data->advertised) & cap2p5;
+		/* Mask prohibited EEE modes */
+		/* In kernels < 6.15, eee_broken_modes is a u32, not a linkmode bitmap.
+		 * We need to convert it to a temporary bitmap to pass to the helper.
+		 */
+		{
+			unsigned long broken_modes_bmap[__ETHTOOL_LINK_MODE_MASK_NBITS / BITS_PER_LONG] = {0};
+			if (phydev->eee_broken_modes & TC956X_ADVERTISED_2500baseT_Full)
+				linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, broken_modes_bmap);
+			if (phydev->eee_broken_modes & TC956X_ADVERTISED_5000baseT_Full)
+				linkmode_set_bit(ETHTOOL_LINK_MODE_5000baseT_Full_BIT, broken_modes_bmap);
+
+			adv_2p5 &= ~(tc956x_ethtool_adv_to_mmd_eee_adv2_t(broken_modes_bmap));
+		}
+#else
 		adv_2p5 = !data->advertised ? cap2p5 :
 		      tc956x_ethtool_adv_to_mmd_eee_adv2_t(data->advertised) & cap2p5;
 		/* Mask prohibited EEE modes */
 		adv_2p5 &= ~phydev->eee_broken_modes;
+#endif
 	}
 	KPRINT_INFO("%s --- adv_2p5:0x%x\n", __func__, adv_2p5);
 
@@ -1991,7 +2061,11 @@ int phy_ethtool_set_eee_2p5(struct phy_device *phydev, struct ethtool_eee *data)
 #endif
 
 int tc956xmac_ethtool_op_get_eee(struct net_device *dev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+				     struct ethtool_keee *edata)
+#else
 				     struct ethtool_eee *edata)
+#endif
 {
 	struct tc956xmac_priv *priv = netdev_priv(dev);
 	int ret;
@@ -2028,7 +2102,11 @@ int tc956xmac_ethtool_op_get_eee(struct net_device *dev,
 #endif
 #ifdef TC956X_SRIOV_VF
 static int tc956xmac_ethtool_op_get_eee(struct net_device *dev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+				     struct ethtool_keee *edata)
+#else
 				     struct ethtool_eee *edata)
+#endif
 {
 	struct tc956xmac_priv *priv = netdev_priv(dev);
 
@@ -2038,7 +2116,11 @@ static int tc956xmac_ethtool_op_get_eee(struct net_device *dev,
 }
 #endif
 static int tc956xmac_ethtool_op_set_eee(struct net_device *dev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+				     struct ethtool_keee *edata)
+#else
 				     struct ethtool_eee *edata)
+#endif
 {
 	struct tc956xmac_priv *priv = netdev_priv(dev);
 #ifndef TC956X_SRIOV_VF
@@ -2402,7 +2484,11 @@ static int tc956xmac_set_rxfh(struct net_device *dev, const u32 *indir,
 #endif
 
 static int tc956xmac_get_ts_info(struct net_device *dev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,11,0)
+			      struct kernel_ethtool_ts_info *info)
+#else
 			      struct ethtool_ts_info *info)
+#endif
 {
 	struct tc956xmac_priv *priv = netdev_priv(dev);
 

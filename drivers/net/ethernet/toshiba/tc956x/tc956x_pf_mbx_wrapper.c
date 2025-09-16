@@ -45,7 +45,11 @@ extern int tc956xmac_ioctl_get_est(struct tc956xmac_priv *priv, void *data);
 extern int tc956xmac_ioctl_set_fpe(struct tc956xmac_priv *priv, void *data);
 extern int tc956xmac_ioctl_get_fpe(struct tc956xmac_priv *priv, void *data);
 extern int tc956xmac_ethtool_op_get_eee(struct net_device *dev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+										struct ethtool_keee *edata);
+#else
 										struct ethtool_eee *edata);
+#endif
 
 
 extern int tc956x_pf_set_mac_filter(struct net_device *dev, int vf,
@@ -996,7 +1000,11 @@ static int tc956xmac_pf_ioctl_interface(struct tc956xmac_priv *priv,
 static int tc956xmac_pf_ethtool_interface(struct tc956xmac_priv *priv, struct net_device *netdev,
 								u8 *mbx, u8 *ack_buff)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+	struct ethtool_keee edata;
+#else
 	struct ethtool_eee edata;
+#endif
 	unsigned long flags;
 
 	if (priv == NULL || mbx == NULL || netdev == NULL || ack_buff == NULL) {
@@ -1023,9 +1031,15 @@ static int tc956xmac_pf_ethtool_interface(struct tc956xmac_priv *priv, struct ne
 	case TC956XMAC_GET_EEE:
 		tc956xmac_ethtool_op_get_eee(netdev, &edata);
 		ack_buff[0] = OPCODE_MBX_ACK_MSG; /* set ACK opcode */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+		ack_buff[1] = sizeof(struct ethtool_keee); /* set size */
+		memcpy(&ack_buff[2], (u8 *)&edata,
+			sizeof(struct ethtool_keee));
+#else
 		ack_buff[1] = sizeof(struct ethtool_eee); /* set size */
 		memcpy(&ack_buff[2], (u8 *)&edata,
 			sizeof(struct ethtool_eee));
+#endif
 		break;
 
 	default:

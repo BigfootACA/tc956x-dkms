@@ -900,7 +900,11 @@ struct tc956xmac_mbx_wrapper_ops {
 	int (*get_speed)(struct tc956xmac_priv *priv, void __user *data);
 	int (*reg_wr)(struct tc956xmac_priv *priv, void __user *data);
 	int (*get_pause_param)(struct tc956xmac_priv *priv, struct ethtool_pauseparam *pause);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+	int (*get_eee)(struct tc956xmac_priv *priv,  struct ethtool_keee *edata);
+#else
 	int (*get_eee)(struct tc956xmac_priv *priv,  struct ethtool_eee *edata);
+#endif
 	int (*get_ts_info)(struct tc956xmac_priv *priv, struct ethtool_ts_info *info);
 	int (*add_mac)(struct tc956xmac_priv *priv,  const u8 *mac);
 	void (*delete_mac)(struct tc956xmac_priv *priv, const u8 *mac);

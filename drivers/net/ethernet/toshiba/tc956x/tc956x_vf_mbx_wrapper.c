@@ -1288,7 +1288,11 @@ static int tc956xmac_vf_ethtool_get_pauseparam(struct tc956xmac_priv *priv,
  * \return success/error
  */
 static int tc956xmac_vf_ethtool_get_eee(struct tc956xmac_priv *priv,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+				     struct ethtool_keee *edata)
+#else
 				     struct ethtool_eee *edata)
+#endif
 {
 	u8 mbx[MBX_TOT_SIZE];
 	int ret;
@@ -1308,10 +1312,17 @@ static int tc956xmac_vf_ethtool_get_eee(struct tc956xmac_priv *priv,
 	ret = tc956xmac_mbx_write(priv, mbx, msg_dst, &priv->fn_id_info);
 	if (ret > 0) {
 		if (ret == ACK) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+			if ((mbx[4] == OPCODE_MBX_ACK_MSG) &&
+				(mbx[5] == sizeof(struct ethtool_keee))) {
+				memcpy(edata, &mbx[6], sizeof(struct ethtool_keee));
+			}
+#else
 			if ((mbx[4] == OPCODE_MBX_ACK_MSG) &&
 				(mbx[5] == sizeof(struct ethtool_eee))) {
 				memcpy(edata, &mbx[6], sizeof(struct ethtool_eee));
 			}
+#endif
 		}
 		KPRINT_DEBUG2("mailbox write with ACK or NACK %d msgbuff %x %x\n", ret, mbx[0], mbx[4]);
 	} else {
