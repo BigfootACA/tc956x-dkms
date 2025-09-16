@@ -6,14 +6,14 @@ on:
 
 jobs:
   test-archlinux-lts:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     container:
       image: archlinux:base-devel
     steps:
     - name: Install Dependencies
       run: |
         pacman-key --init
-        pacman -Syu --noconfirm git linux-lts linux-lts-headers
+        pacman -Syu --noconfirm --needed git linux-lts linux-lts-headers
     - name: Checkout
       uses: actions/checkout@v4
       with:
@@ -22,6 +22,31 @@ jobs:
       working-directory: tc956x-dkms
       run: |
         KERNEL_SOURCE_DIR=$(pacman -Qql linux-lts-headers | grep -m 1 -Eo ".*/lib/modules/[^/]+/build")
+        KERNELRELEASE=$(echo -n "$KERNEL_SOURCE_DIR" | sed 's/.*\/lib\/modules\///g;s/\/build//')
+        make -j$(nproc) KERNELRELEASE=$KERNELRELEASE -C $KERNEL_SOURCE_DIR M=$(pwd)/drivers/net/ethernet/toshiba/tc956x \
+          CONFIG_TC956X_NET=m \
+          CONFIG_TC956X_PF=y \
+          CONFIG_TC956X_VF=n \
+          CONFIG_TC956X_PCIE_GEN3_SETTING=y \
+          CONFIG_TC956X_IOCTL_REG_RD_WR_ENABLE=y
+
+  test-archlinux:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+    - name: Install Dependencies
+      run: |
+        pacman-key --init
+        pacman -Syu --noconfirm --needed git linux linux-headers
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: tc956x-dkms
+    - name: Build Module
+      working-directory: tc956x-dkms
+      run: |
+        KERNEL_SOURCE_DIR=$(pacman -Qql linux-headers | grep -m 1 -Eo ".*/lib/modules/[^/]+/build")
         KERNELRELEASE=$(echo -n "$KERNEL_SOURCE_DIR" | sed 's/.*\/lib\/modules\///g;s/\/build//')
         make -j$(nproc) KERNELRELEASE=$KERNELRELEASE -C $KERNEL_SOURCE_DIR M=$(pwd)/drivers/net/ethernet/toshiba/tc956x \
           CONFIG_TC956X_NET=m \
