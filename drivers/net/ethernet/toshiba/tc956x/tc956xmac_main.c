@@ -711,14 +711,14 @@ int tc956x_dump_regs(struct net_device *net_device, struct tc956x_regs *regs)
 	}
 
 	/* Driver & FW Information */
-	strlcpy(regs->info.driver, TC956X_RESOURCE_NAME, sizeof(regs->info.driver));
-	strlcpy(regs->info.version, DRV_MODULE_VERSION, sizeof(regs->info.version));
+	strscpy(regs->info.driver, TC956X_RESOURCE_NAME, sizeof(regs->info.driver));
+	strscpy(regs->info.version, DRV_MODULE_VERSION, sizeof(regs->info.version));
 
 	reg = readl(priv->tc956x_SRAM_pci_base_addr + TC956X_M3_DBG_VER_START);
 	fw_version = (struct tc956x_version *)(&reg);
 	scnprintf(fw_version_str, sizeof(fw_version_str), "FW Version %s_%d.%d-%d", (fw_version->rel_dbg == 'D')?"DBG":"REL",
 					fw_version->major, fw_version->minor, fw_version->sub_minor);
-	strlcpy(regs->info.fw_version, fw_version_str, sizeof(regs->info.fw_version));
+	strscpy(regs->info.fw_version, fw_version_str, sizeof(regs->info.fw_version));
 
 	/* Updating statistics */
 	tc956xmac_mmc_read(priv, priv->mmcaddr, &priv->mmc);
@@ -4719,13 +4719,13 @@ static int tc956xmac_phy_setup(struct tc956xmac_priv *priv)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
 	/* Set the platform/firmware specified interface mode */
+	__set_bit(mode, priv->phylink_config.supported_interfaces);
+
 	/*If SGMII interface, add 2500BASEX also in supported interface as in some PHY,
-	 * 2500Base-X and SGMII are used interchangeably
-	 */
+	* 2500Base-X and SGMII are used interchangeably
+	*/
 	if (mode == PHY_INTERFACE_MODE_SGMII)
 		__set_bit(PHY_INTERFACE_MODE_2500BASEX, priv->phylink_config.supported_interfaces);
-
-	__set_bit(mode, priv->phylink_config.supported_interfaces);
 #endif
 
 	phylink = phylink_create(&priv->phylink_config, fwnode,

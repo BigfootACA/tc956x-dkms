@@ -3082,7 +3082,7 @@ static int tc956xmac_pci_probe(struct pci_dev *pdev,
 			value provided in module param not matching with the device BDF.\
 			Use the device number as %d and set other associated module parameter values to default\n", res.device_num);
 
-		macX_interface[res.device_num]					= 0xFF;
+		macX_interface[res.device_num]					= ENABLE_SGMII_INTERFACE;
 		portX_mdc[res.device_num]						= 0xFF;
 		portX_c45_state[res.device_num]					= 0xFF;
 		portX_phyaddr[res.device_num]					= 0;
@@ -3309,13 +3309,13 @@ static int tc956xmac_pci_probe(struct pci_dev *pdev,
 		}
 		res.port_interface = macX_interface[res.device_num];
 
-		portX_mdc[res.device_num] = (portX_mdc[res.device_num] > TC956XMAC_XGMAC_MDC_CSR_202) ? TC956XMAC_XGMAC_MDC_CSR_12 : portX_mdc[res.device_num];
+		portX_mdc[res.device_num] = (portX_mdc[res.device_num] > TC956XMAC_XGMAC_MDC_CSR_202) ? TC956XMAC_XGMAC_MDC_CSR_62 : portX_mdc[res.device_num];
 		plat->mdc_clk = portX_mdc[res.device_num];
 
-		portX_c45_state[res.device_num] = (portX_c45_state[res.device_num] > 1) ? true : portX_c45_state[res.device_num];
+		portX_c45_state[res.device_num] = (portX_c45_state[res.device_num] > 1) ? false : portX_c45_state[res.device_num];
 		plat->c45_needed = portX_c45_state[res.device_num];
 
-		macX_link_down_macrst[res.device_num] = (macX_link_down_macrst[res.device_num] > ENABLE) ? ENABLE : macX_link_down_macrst[res.device_num];
+		macX_link_down_macrst[res.device_num] = (macX_link_down_macrst[res.device_num] > ENABLE) ? DISABLE : macX_link_down_macrst[res.device_num];
 		plat->link_down_macrst = macX_link_down_macrst[res.device_num];
 
 	}
@@ -3534,7 +3534,7 @@ static int tc956xmac_pci_probe(struct pci_dev *pdev,
 
 		writel(ret, res.addr + NRSTCTRL0_OFFSET);
 
-		NMSGPR_ALERT(&pdev->dev, "Enabling all eMAC clocks for Port 0 Bus number %x\n", pdev->bus->number);
+		NMSGPR_INFO(&pdev->dev, "Enabling all eMAC clocks for Port 0 Bus number %x\n", pdev->bus->number);
 		/* Enable all clocks to eMAC Port0 */
 		ret = readl(res.addr + NCLKCTRL0_OFFSET);
 
@@ -3584,7 +3584,7 @@ static int tc956xmac_pci_probe(struct pci_dev *pdev,
 		ret |= NRSTCTRL1_MAC1RST1;
 		writel(ret, res.addr + NRSTCTRL1_OFFSET);
 
-		NMSGPR_ALERT(&pdev->dev, "Enabling all eMAC clocks for Port 1 Bus number-%x\n", pdev->bus->number);
+		NMSGPR_INFO(&pdev->dev, "Enabling all eMAC clocks for Port 1 Bus number-%x\n", pdev->bus->number);
 		/* Enable all clocks to eMAC Port1 */
 		ret = readl(res.addr + NCLKCTRL1_OFFSET);
 
@@ -4714,6 +4714,8 @@ static const struct pci_device_id tc956xmac_id_table[] = {
 #endif
 	{}
 };
+
+MODULE_DEVICE_TABLE(pci, tc956xmac_id_table);
 
 static SIMPLE_DEV_PM_OPS(tc956xmac_pm_ops, tc956x_pcie_suspend, tc956x_pcie_resume);
 

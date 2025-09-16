@@ -432,7 +432,7 @@ enum packets_types {
 /* Select the MDC range based on PHY specification.
  * IEEE recommends max of 2.5MHz. But if PHY supports more than that, then it can be used
  */
-#define PORT0_MDC	TC956XMAC_XGMAC_MDC_CSR_12
+#define PORT0_MDC	TC956XMAC_XGMAC_MDC_CSR_62
 #define PORT1_MDC	TC956XMAC_XGMAC_MDC_CSR_62
 
 #ifdef TC956X
@@ -1336,7 +1336,7 @@ RXQ1 used for MAC2MAC */
 
 
 //#define TC956X_KPRINT_DEBUG_L1
-#define TC956X_KPRINT_INFO
+// #define TC956X_KPRINT_INFO
 #define TC956X_KPRINT_NOTICE
 #define TC956X_KPRINT_WARNING
 #define TC956X_KPRINT_ERR
@@ -1350,7 +1350,7 @@ RXQ1 used for MAC2MAC */
 #define NMSGPR_ERR(dev, x...)   dev_err(dev, x)
 
 #ifdef TC956X_DBG_FUNC
-#define DBGPR_FUNC(dev, x...) dev_alert(dev, x)
+#define DBGPR_FUNC(dev, x...) dev_info(dev, x)
 #else
 #define DBGPR_FUNC(dev, x...) do { } while (0)
 #endif
