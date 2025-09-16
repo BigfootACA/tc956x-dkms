@@ -410,7 +410,12 @@ static int tc956xmac_test_phy_loopback(struct tc956xmac_priv *priv)
 
 	if (!priv->dev->phydev)
 		return -EBUSY;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+	ret = phy_loopback(priv->dev->phydev, true, 0);
+#else
 	ret = phy_loopback(priv->dev->phydev, true);
+#endif
 	if (ret)
 		return ret;
 
@@ -418,7 +423,11 @@ static int tc956xmac_test_phy_loopback(struct tc956xmac_priv *priv)
 	attr.dst = priv->dev->dev_addr;
 	ret = __tc956xmac_test_loopback(priv, &attr);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+	phy_loopback(priv->dev->phydev, false, 0);
+#else
 	phy_loopback(priv->dev->phydev, false);
+#endif
 	msleep(7000);
 
 	return ret;
@@ -1627,7 +1636,11 @@ void tc956xmac_selftest_run(struct net_device *dev,
 		case TC956XMAC_LOOPBACK_PHY:
 			ret = -EOPNOTSUPP;
 			if ((dev->phydev) && !(phy_loopback_enabled)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+				ret = phy_loopback(dev->phydev, true, 0);
+#else
 				ret = phy_loopback(dev->phydev, true);
+#endif
 				msleep(7000);
 				phy_loopback_enabled = 1;
 			} else {
@@ -1673,7 +1686,11 @@ void tc956xmac_selftest_run(struct net_device *dev,
 	}
 
 	if (dev->phydev) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+		ret = phy_loopback(dev->phydev, false, 0);
+#else
 		ret = phy_loopback(dev->phydev, false);
+#endif
 		msleep(7000);
 	}
 }
