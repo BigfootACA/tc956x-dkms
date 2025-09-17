@@ -1,339 +1,361 @@
 # Toshiba Electronic Devices & Storage Corporation TC956X PCIe Ethernet Host Driver
-Release Date: 31 Mar 2025
 
-Release Version: V_06-00-00
+**Release Date**: 31 Mar 2025
+**Release Version**: V_06-00-00
 
 TC956X PCIe EMAC driver is based on "Fedora 30, kernel-5.4.19", "Fedora 36, kernel-6.1.18" and "Fedora 39, kernel-6.6.1"
 
-# Compilation & Run: Need to be root user to execute the following steps.
-1.  Execute following commands:
+# Compilation & Run
+**Note:** You need to be a root user to execute the following steps.
 
-    #make clean
+1.  Execute the following commands:
+    ```bash
+    make clean
+    make
+    ```
 
-    #make
-2.  By default, TC956X_DMA_OFFLOAD_ENABLE is disabled. If IPA offload is needed, execute following commands:
+2.  By default, `TC956X_DMA_OFFLOAD_ENABLE` is disabled.
+    *   If IPA offload is needed, execute the following commands:
+        ```bash
+        make clean
+        make TC956X_DMA_OFFLOAD_ENABLE=1
+        ```
+    *   To compile the driver with the load firmware header (`fw.h`), use the below command:
+        ```bash
+        make TC956X_LOAD_FW_HEADER=1
+        ```
+    *   In order to compile the Driver to include the code for applying Gen3 setting, execute `make` with the below argument:
+        ```bash
+        make TC956X_PCIE_GEN3_SETTING=1
+        ```
+    *   By default, the code compiles with Automotive configuration. To compile the code in CPE configuration, use the following with any other arguments that may be needed:
+        ```bash
+        make cpe=1
+        ```
+    > Please note, in case both `fw.h` and Gen3 settings are needed, then both arguments need to be specified.
 
-    #make clean
+    *   To compile for board RBTC9563_3MA, enable the `RBTC9563_3MA` MACRO in the `common.h` file.
 
-    #make TC956X_DMA_OFFLOAD_ENABLE=1
+3.  Load the `phylink` module:
+    ```bash
+    modprobe phylink
+    ```
 
-    To compile driver with load firmware header (fw.h) use the below command
-    #make TC956X_LOAD_FW_HEADER=1 
+4.  Load the driver:
+    ```bash
+    insmod tc956x_pcie_eth.ko pcie_link_speed=X
+    ```
+    *   In the module parameter `pcie_link_speed`, `X` is the desired PCIe Gen speed. `X` can be 3, 2, or 1.
+    *   Passing the module parameter (`pcie_link_speed=X`) is optional.
+    *   If the module parameter is not passed, by default Gen3 speed will be selected by the driver.
+    > Please note that the driver should be compiled using the below command to use this feature:
+    > ```bash
+    > make TC956X_PCIE_GEN3_SETTING=1
+    > ```
 
-    In order to compile the Driver to include the code for applying Gen3 setting, execute Make with below argument
-    #make TC956X_PCIE_GEN3_SETTING=1
-	
-	By default code compiles with Automotive configuration, to compile code in CPE configuration use the following with any other arguments that may be needed,
-    #make cpe=1
+5.  Remove the driver:
+    ```bash
+    rmmod tc956x_pcie_eth
+    ```
 
-    Please note, incase both fw.h and Gen3 settings are needed, then both arugments need to be specified.
-	To compile for board RBTC9563_3MA, Enable RBTC9563_3MA MACRO in common.h file.
+# Notes
 
-
-3.	Load phylink module
-
-	#modprobe phylink
-4.  Load the driver
-
-	#insmod tc956x_pcie_eth.ko pcie_link_speed=X
-
-	In the module parameter pcie_link_speed, X is the desired PCIe Gen speed. X can be 3 or 2 or 1.
-	Passing module parameter (pcie_link_speed=X) is optional.
-	If module parameter is not passed, by default Gen3 speed will be selected by the driver.
-
-	Please note that driver should be compiled using below command to use this feature:
-	#make TC956X_PCIE_GEN3_SETTING=1
-5.  Remove the driver
-
-	#rmmod tc956x_pcie_eth
-
-# Note:
-
-1. Use below commands to advertise with Autonegotiation ON for speeds 10Gbps, 5Gbps, 2.5Gbps, 1Gbps, 100Mbps and 10Mbps as ethtool speed command does not support.
-
-    ethtool -s <interface> advertise 0x7000 autoneg on --> changes the advertisement to 10Gbps
+1.  Use the below commands to advertise with Autonegotiation ON for speeds 10Gbps, 5Gbps, 2.5Gbps, 1Gbps, 100Mbps, and 10Mbps as the `ethtool` speed command does not support it.
+    ```bash
+    # changes the advertisement to 10Gbps
+    ethtool -s <interface> advertise 0x7000 autoneg on
     
-    ethtool -s <interface> advertise 0x1000000006000 autoneg on --> changes the advertisement to 5Gbps
+    # changes the advertisement to 5Gbps
+    ethtool -s <interface> advertise 0x1000000006000 autoneg on
+    
+    # changes the advertisement to 2.5Gbps
+    ethtool -s <interface> advertise 0x800000006000 autoneg on
+    
+    # changes the advertisement to 1Gbps
+    ethtool -s <interface> advertise 0x6020 autoneg on
+    
+    # changes the advertisement to 100Mbps
+    ethtool -s <interface> advertise 0x6008 autoneg on
+    
+    # changes the advertisement to 10Mbps
+    ethtool -s <interface> advertise 0x6002 autoneg on
+    ```
 
-    ethtool -s <interface> advertise 0x800000006000 autoneg on --> changes the advertisement to 2.5Gbps
+2.  Use the below command to insert the kernel module with support for multiple interfaces in a system where more than one TC956x device is present:
+    ```bash
+    insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_interface=x1,x2,...xn
+    ```
+    **Argument Info:**
+    *   `tc956x_eth_ports_bdf`: Array of BDFs (Bus number, Device number, and Function number) for which interface configuration is required. Default is `0` (None), which means other associated array module parameters will assign their default values to the TC956x devices in a cascade setup.
+        *   Supported format: `0xBBDF`. 'BB': one byte of Bus number, 'DF': one byte of Slot/Device number and Function number encoded as [7:3] bits for Slot number and [2:0] bits for Function number.
+        *   This is an array module parameter in which a maximum of 14 BDFs can be provided in comma-separated format.
+        *   Note that this is a mandatory parameter to associate other array module parameters with a particular TC956x device in a cascade setup.
+    *   `macX_interface`: Array of MAC Interfaces arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+        *   `x = [0: USXGMII, 1: XFI, 2: RGMII*, 3: RGMII_ID*, 4: SGMII, 5: 2500Base-X, 6: USXGMII_10G, 7: USXGMII_5G, 8: USXGMII_2.5G]`
+        *   (*) - Not a supported interface type for EMAC Port0.
 
-    ethtool -s <interface> advertise 0x6020 autoneg on --> changes the advertisement to 1Gbps
+    **Notes:**
+    1.  Providing an array of BDFs in the module param `tc956x_eth_ports_bdf` along with `macX_interface` is mandatory to associate a TC956x's MAC port for the correct MAC interface.
+    2.  If `tc956x_eth_ports_bdf` is not provided, the software will take the following interface for all TC956x's devices in a TC956x's DSP cascade setup or more than one TC956x connection in a system.
+        *   Port0: XFI
+        *   Port1: SGMII
+    3.  Along with `tc956x_eth_ports_bdf` and `macX_interface` module parameters, the below-mentioned module parameters also can be provided according to the PHY specification attached with MAC0/1.
+        *   **a. `portX_mdc`**: Array of MDC values arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+            *   PORTX MDC clock setting supported values - default is `0x4` (clk_csr_i/12) for all Port0 and `0x8` (clk_csr_i/62) for all Port1.
+            *   Supported values:
+                ```
+                [
+                  0x0 - clk_csr_i/4,   0x1 - clk_csr_i/6,
+                  0x2 - clk_csr_i/8,   0x3 - clk_csr_i/10,
+                  0x4 - clk_csr_i/12,  0x5 - clk_csr_i/14,
+                  0x6 - clk_csr_i/16,  0x7 - clk_csr_i/18,
+                  0x8 - clk_csr_i/62,  0x9 - clk_csr_i/102,
+                  0xA - clk_csr_i/122, 0xB - clk_csr_i/142,
+                  0xC - clk_csr_i/162, 0xD - clk_csr_i/202
+                ]
+                ```
+        *   **b. `portX_c45_state`**: Array of C45 state values arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+            *   PORTX phy driver clause setting - default is `1` (true) for all Port0 and `0` (false) for all Port1.
+            *   Supported values: `[1 - true, 0 - false]`
+        *   **c. `portX_phyaddr`**: Array of Phy device addresses arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+            *   PORT0 Phy device addr for phy detection, default is `0` for both Port0 and Port1.
+            *   Supported values: `[0 to 31]`
+        *   **d. `macX_link_down_macrst`**: Array of MAC Link down reset settings in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+            *   MAC reset for PHY Clock loss during Link Down - default is `1` (ENABLE) for all Port0 and `0` (DISABLE) for all Port1.
+            *   Supported values: `[0: DISABLE, 1: ENABLE]`
+        *   **e. `macX_no_mdio_no_phy`**: Array of PHY and MDIO configurations in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+            *   PHY and MDIO configuration - default is `0` (PHY ON and MDIO ON) for both Port0 and Port1.
+            *   Supported values: `[0: PHY ON and MDIO ON, 1: PHY ON and MDIO OFF*, 2: PHY OFF and MDIO ON*, 3: PHY OFF and MDIO OFF]`
+            *   (*) These values are not supported currently.
+    4.  In this release, only the above-mentioned module parameters are supported in array format to associate with an individual TC956x device in a cascade setup. All other module parameters remain the same as that of the previous release.
+    5.  For these array module parameters, the maximum array members supported is 14, which is the maximum number of ethernet ports for a 2-level cascade setup.
 
-    ethtool -s <interface> advertise 0x6008 autoneg on --> changes the advertisement to 100Mbps
-
-    ethtool -s <interface> advertise 0x6002 autoneg on --> changes the advertisement 10Mbps
-
-2. Use the below command to insert the kernel module with support of multiple interfaces in a system where more than one TC956x devices are present:
-	
-	#insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn  macX_interface=x1,x2,...xn
-
-	argument info:
-	tc956x_eth_ports_bdf: Array of BDFs (Bus number, Device number and Function number) for which interface configuration is required, default is 0 (None),
-		which means other associated array module parameters will assign their default values to the TC956x devices in cascade setup.
-		Supported format: 0xBBDF, 'BB': one byte of Bus number, 'DF': one byte of Slot/Device number and Function number encoded as
-		[7:3] bits for Slot number and [2:0] bits for Function number.
-		This is array module parameter in which maximum of 14 BDFs can be provided in comma seperated format.
-		Note that this is a mandatory parameter to associate other array module parameters with particular TC956x device in a cascade setup.
-
-    macX_interface: Array of MAC Interface arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-	     x = [0: USXGMII, 1: XFI, 2: RGMII*, 3: RGMII_ID*, 4: SGMII, 5: 2500Base-X, 6: USXGMII_10G, 7: USXGMII_5G, 8: USXGMII_2.5G]
-		 (*) - Not supported interface type for EMAC Port0.
-
-    Note:
-	1. Providing array of BDFs in module param "tc956x_eth_ports_bdf" along with "macX_interface" is mandatory to associate a TC956x's MAC port for correct MAC interface.
-	2. If "tc956x_eth_ports_bdf" is not provided, software will take following interface for all TC956x's devices in a TC956x's DSP cascade setup or more than one TC956x connection in a system.
-	   Port0: XFI
-	   Port1: SGMII
-	3. Along with "tc956x_eth_ports_bdf" and "macX_interface" module parameters, below mentioned module parameters also can be provided according to PHY specification attached with MAC0/1
-
-	   a. portX_mdc: Array of MDC values arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-	   PORTX MDC clock setting supported values - default is 0x4 (clk_csr_i/12) for all Port0 and 0x8 (clk_csr_i/62) for all Port1
-	   Supported values: 
-                         [
-			  0x0 - clk_csr_i/4,   0x1 - clk_csr_i/6,
-			  0x2 - clk_csr_i/8,   0x3 - clk_csr_i/10,
-			  0x4 - clk_csr_i/12,  0x5 - clk_csr_i/14,
-			  0x6 - clk_csr_i/16,  0x7 - clk_csr_i/18,
-			  0x8 - clk_csr_i/62,  0x9 - clk_csr_i/102,
-			  0xA - clk_csr_i/122, 0xB - clk_csr_i/142,
-			  0xC - clk_csr_i/162, 0xD - clk_csr_i/202 
-			  ]
-
-
-	   b. portX_c45_state: Array of C45 state values arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-	   PORTX phy driver clause setting - default is 1 (true) for all Port0 and 0 (false) for all Port1
-	   Supported values: [1 - true, 0 - false]
-
-	   c. portX_phyaddr: Array of Phy device addr arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-	   PORT0 Phy device addr for phy detection, default is 0 for both Port0 and Port1
-	   Supported values: [0 to 31]
-
-	   d. macX_link_down_macrst: Array of MAC Link down reset setting in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-	   MAC reset for PHY Clock loss during Link Down - default is 1 (ENABLE) for all Port0 and 0 (DISABLE) for all Port1
-	   Supported values: [0: DISABLE, 1: ENABLE]
-
-	   e. macX_no_mdio_no_phy: Array of PHY and MDIO configuration in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-	   PHY and MDIO configuration - default is 0 (PHY ON and MDIO ON) for both Port0 and Port1
-	   Supported values: [0: PHY ON and MDIO ON, 1: PHY ON and MDIO OFF*, 2: PHY OFF and MDIO ON*, 3: PHY OFF and MDIO OFF]
-	   (*) These values are not supported currently.
-	4. In this release only above mentioned module parameters are supported in array format to associate with individual TC956x device in cascade setup.
-	   All other module parameters remains same as that of previous release.
-	5. For this array module parameters maximum array members supported is 14 which is maximum number of ethernet ports for 2 Level cascade setup.
-
-	Example for giving array of module parameters:
+    **Example for giving an array of module parameters:**
+    ```bash
     insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=0x0500,0x0501 macX_interface=1,4 portX_c45_state=1,0 portX_mdc=4,8 portX_phyaddr=0,0
-	
-	This is an example for configuring Port0 interface as "XFI" and Port1 interface as "SGMII" for the TC956x device which is listed like below in "lspci" result.
-		01:00.0 PCI bridge: Toshiba Corporation Device 0623
-		02:01.0 PCI bridge: Toshiba Corporation Device 0623
-		02:02.0 PCI bridge: Toshiba Corporation Device 0623
-		02:03.0 PCI bridge: Toshiba Corporation Device 0623
-		05:00.0 Ethernet controller: Toshiba Corporation Device 0220
-		05:00.1 Ethernet controller: Toshiba Corporation Device 0220
-	In this example, "C45" state is configured as "true" for Port0 and "false" for Port1 and MDC clock as "clk_csr_i/12" and clk_csr_i/62 respectively.
-	It is possible to give different values as well.
+    ```
+    This is an example for configuring Port0 interface as "XFI" and Port1 interface as "SGMII" for the TC956x device which is listed like below in the `lspci` result.
+    ```
+    01:00.0 PCI bridge: Toshiba Corporation Device 0623
+    02:01.0 PCI bridge: Toshiba Corporation Device 0623
+    02:02.0 PCI bridge: Toshiba Corporation Device 0623
+    02:03.0 PCI bridge: Toshiba Corporation Device 0623
+    05:00.0 Ethernet controller: Toshiba Corporation Device 0220
+    05:00.1 Ethernet controller: Toshiba Corporation Device 0220
+    ```
+    In this example, "C45" state is configured as "true" for Port0 and "false" for Port1, and MDC clock as "clk_csr_i/12" and "clk_csr_i/62" respectively. It is possible to give different values as well.
 
+3.  Regarding performance, use the below command to increase the dynamic byte queue limit.
+    ```bash
+    echo "900000" > /sys/devices/pci0000\:00/0000\:00\:01.0/0000\:01\:00.0/0000\:02\:03.0/0000\:05\:00.0/net/enp5s0f0/queues/tx-0/byte_queue_limits/limit_min
+    ```
+    *   `900000` is a random value chosen. You need to adjust this value on your system.
+    *   The `"0000\:00/0000\:00\:01.0/0000\:01\:00.0/0000\:02\:03.0/0000\:05\:00.0/"` value can be obtained from the `lspci -t` command.
 
-3. Regarding the performance, use the below command to increase the dynamic byte queue limit
+4.  The debug counters to check the interrupt count are available.
+    Execute `# ethtool -S <interface>`. A sample output is as below:
+    ```
+    total_interrupts: 120109
+    lpi_intr_n: 0
+    pmt_intr_n: 0
+    event_intr_n: 0
+    tx_intr_n: 120000
+    rx_intr_n: 51
+    xpcs_intr_n: 0
+    phy_intr_n: 46
+    sw_msi_n: 12
+    ```
+    *   `tx_intr_n`: No. of Tx interrupts originating from eMAC
+    *   `sw_msi_n`: No. of SW MSIs triggered by Systick Handler as part of an optimized Tx Timer based on Systick approach.
+    *   So total number of interrupts for Tx = `tx_intr_n` + `sw_msi_n`.
+    *   Please note that whenever Rx interrupts are generated, the Host ISR will process the Tx completed descriptors too.
 
-    $echo "900000" > /sys/devices/pci0000\:00/0000\:00\:01.0/0000\:01\:00.0/0000\:02\:03.0/0000\:05\:00.0/net/enp5s0f0/queues/tx-0/byte_queue_limits/limit_min
+5.  With V_01-00-07, when the IPA API `start_channel()` is invoked for the Rx direction, `MAC_Address1_High` is updated with `0xBF000000`. This register setting is almost similar to promiscuous mode. So please install appropriate FRP instructions.
 
-    900000 is the random value chosen. It needs to adjust this value on their system and check
-    "0000\:00/0000\:00\:01.0/0000\:01\:00.0/0000\:02\:03.0/0000\:05\:00.0/" value can be obtained from the "lspci -t" command
+6.  From V_01-00-08 onwards, the Port0 ethernet interface will not be created only if there is no ethernet PHY attached to it.
 
-4. The debug counters to check the interrupt count is available.
+7.  Enable the `TC956X_PHY_INTERRUPT_MODE_EMAC0` macro for supporting PORT0 Interrupt mode. Disable the macro if the phy driver supports only polling mode. Enable the `TC956X_PHY_INTERRUPT_MODE_EMAC1` macro for supporting PORT1 Interrupt mode. Disable the macro if the phy driver supports only polling mode.
 
-    "#ethtool -S <interface>" needs to be executed and sample output is as below
-  
-       total_interrupts: 120109
-       lpi_intr_n: 0
-       pmt_intr_n: 0
-       event_intr_n: 0
-       tx_intr_n: 120000
-       rx_intr_n: 51
-       xpcs_intr_n: 0
-       phy_intr_n: 46
-       sw_msi_n: 12
+8.  Change the below macro values for the configuration of Link state L0 and L1 transaction delay.
+    ```c
+    /* Link state change delay configuration for Upstream Port */
+    #define USP_L0s_ENTRY_DELAY (0x1FU)
+    #define USP_L1_ENTRY_DELAY  (0x3FFU)
 
-   tx_intr_n = No of. Tx interrupts originating from eMAC
-   sw_msi_n = No. of SW MSIs triggered by Systick Handler as part of optimized Tx Timer based on Systick approach.
-   So total number of interrupts for Tx = tx_intr_n + sw_msi_n
-   Please note that whenever Rx interruts are generated, the Host ISR will process the Tx completed descriptors too.
+    /* Link state change delay configuration for Downstream Port-1 */
+    #define DSP1_L0s_ENTRY_DELAY    (0x1FU)
+    #define DSP1_L1_ENTRY_DELAY (0x3FFU)
 
-5. With V_01-00-07, when IPA API start_channel() is invoked for Rx direction, MAC_Address1_High is updated with 0xBF000000. 
-   This register setting is almost similar to promiscuous mode. So please install appropriate FRP instructions.
+    /* Link state change delay configuration for Downstream Port-2 */
+    #define DSP2_L0s_ENTRY_DELAY    (0x1FU)
+    #define DSP2_L1_ENTRY_DELAY (0x3FFU)
 
-6. From V_01-00-08 onwards, Port0 ethernet interface will not be created only if there is no ethernet PHY attached to it
+    /* Link state change delay configuration for Virtual Downstream Port */
+    #define VDSP_L0s_ENTRY_DELAY    (0x1FU)
+    #define VDSP_L1_ENTRY_DELAY (0x3FFU)
 
-7. Enable TC956X_PHY_INTERRUPT_MODE_EMAC0 macro for supporting PORT0 Interrupt mode. Disable the macro if the phy driver supports only polling mode.
-   Enable TC956X_PHY_INTERRUPT_MODE_EMAC1 macro for supporting PORT1 Interrupt mode. Disable the macro if the phy driver supports only polling mode.
+    /* Link state change delay configuration for Internal Endpoint */
+    #define EP_L0s_ENTRY_DELAY  (0x1FU)
+    #define EP_L1_ENTRY_DELAY   (0x3FFU)
+    ```
+    **Formula:**
+    *   L0 entry delay = `XXX_L0s_ENTRY_DELAY` * 256 ns
+    *   L1 entry delay = `XXX_L1_ENTRY_DELAY` * 256 ns
+    *   `XXX_L0s_ENTRY_DELAY` range: 1-31
+    *   `XXX_L1_ENTRY_DELAY`: 1-1023
 
-8. Change below macro values for configuration of Link state L0 and L1 transaction delay.
-	/* Link state change delay configuration for Upstream Port */
-	#define USP_L0s_ENTRY_DELAY	(0x1FU)
-	#define USP_L1_ENTRY_DELAY	(0x3FFU)
+    **Note:**
+    1.  To apply the above values, it is also required to enable the macro `TC956X_PCIE_LINK_STATE_LATENCY_CTRL`.
+    2.  It is also possible to provide `USP_L0s_ENTRY_DELAY`, `USP_L1_ENTRY_DELAY`, `EP_L0s_ENTRY_DELAY`, `EP_L1_ENTRY_DELAY` via Module parameters. Refer to the User Manual for details.
 
-	/* Link state change delay configuration for Downstream Port-1 */
-	#define DSP1_L0s_ENTRY_DELAY	(0x1FU)
-	#define DSP1_L1_ENTRY_DELAY	(0x3FFU)
+9.  **VLAN Configuration**
+    *   To check VLAN feature status, execute:
+        ```bash
+        ethtool -k <interface> | grep vlan
+        ```
+    *   To enable/disable the following VLAN features, execute:
+        *   (a) `rx-vlan-filter`:
+            ```bash
+            ethtool -K <interface> rx-vlan-filter <on|off>
+            ```
+        *   (b) `rx-vlan-offload`:
+            ```bash
+            ethtool -K <interface> rxvlan <on|off>
+            ```
+        *   (c) `tx-vlan-offload`:
+            ```bash
+            ethtool -K <interface> txvlan <on|off>
+            ```
+    *   Use the following to configure a VLAN:
+        ```bash
+        # (a)
+        modprobe 8021q
+        # (b)
+        vconfig add <interface> <vlanid>
+        # (c)
+        vconfig set_flag <interface>.<vlanid> 1 0
+        # (d)
+        ifconfig <interface>.<vlanid> <ip> netmask 255.255.255.0 broadcast <ip mask> up
+        ```
+    *   **Default Configuration:**
+        *   (a) Rx VLAN filter is disabled.
+        *   (b) Rx VLAN offload (VLAN stripping) is disabled.
+        *   (c) Tx VLAN offload is enabled.
 
-	/* Link state change delay configuration for Downstream Port-2 */
-	#define DSP2_L0s_ENTRY_DELAY	(0x1FU)
-	#define DSP2_L1_ENTRY_DELAY	(0x3FFU)
+10. Use the below command to insert the kernel module for passing pause frames to the application, except pause frames from the PHY:
+    ```bash
+    insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_filter_phy_pause=x1,x2,...xn
+    ```
+    **Argument Info:**
+    *   `tc956x_eth_ports_bdf`: Refer to section 2 for details.
+    *   `macX_filter_phy_pause`: Array of Filter PHY pause frames arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`. This filters PHY pause frames alone and passes Link partner pause frames to the application for the BDFs provided.
+        *   `x = [0: DISABLE (default), 1: ENABLE]`
+    *   If invalid values are passed as a kernel module parameter, the default value will be selected.
 
-	/* Link state change delay configuration for Virtual Downstream Port */
-	#define VDSP_L0s_ENTRY_DELAY	(0x1FU)
-	#define VDSP_L1_ENTRY_DELAY	(0x3FFU)
+11. Use the below command to check WOL support and its type:
+    ```bash
+    ethtool <interface>
+    ```
 
-	/* Link state change delay configuration for Internal Endpoint */
-	#define EP_L0s_ENTRY_DELAY	(0x1FU)
-	#define EP_L1_ENTRY_DELAY	(0x3FFU)
+12. **WOL Command Usage:**
+    ```bash
+    ethtool -s <interface> wol <type - p/g/d>
+    ```
+    **Supported WOL options and meaning:**
+    | Option | Meaning                   |
+    | :----: | :------------------------ |
+    |   p    | Wake on phy activity      |
+    |   g    | Wake on MagicPacket(tm)   |
+    |   d    | Disable (wake on nothing) (Default) |
 
-	Formula:
-		L0 entry delay = XXX_L0s_ENTRY_DELAY * 256 ns
-		L1 entry delay = XXX_L1_ENTRY_DELAY * 256 ns
-		
-		XXX_L0s_ENTRY_DELAY range: 1-31
-		XXX_L1_ENTRY_DELAY: 1-1023
-	Note:
-	1. To apply the above values, it is also required to enable the macro TC956X_PCIE_LINK_STATE_LATENCY_CTRL
-	2. Also it is possible to provide USP_L0s_ENTRY_DELAY, USP_L1_ENTRY_DELAY, EP_L0s_ENTRY_DELAY, EP_L1_ENTRY_DELAY via Module parameters.
-	   Refer User Manual for the details.
+    **Example** - To wake on phy activity and magic packet, use:
+    ```bash
+    ethtool -s eth0 wol pg
+    ```
 
-9. To check vlan feature status execute:
-	ethtool -k <interface> | grep vlan
+13. Use the below command to insert the kernel module to enable EEE and configure the LPI Auto Entry timer:
+    ```bash
+    insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_eee_enable=x1,x2,...xn macX_lpi_timer=y1,y2,...yn
+    ```
+    **Argument Info:**
+    *   `tc956x_eth_ports_bdf`: Refer to section 2 for details.
+    *   `macX_eee_enable`: Array of Enable/Disable EEE arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+        *   `x = [0: DISABLE (default), 1: ENABLE]`
+    *   `macX_lpi_timer`: Array of LPI Automatic Entry Timer arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`.
+        *   `y = [0..1048568 (us)]`, default is `600 (us)`.
 
-	To enable/disable following vlan features execute:
-		(a) rx-vlan-filter:
-			ethtool -K <interface> rx-vlan-filter <on|off>
-		(b) rx-vlan-offload:
-			ethtool -K <interface> rxvlan <on|off>
-		(c) tx-vlan-offload:
-			ethtool -K <interface> txvlan <on|off>
-
-	Use following to configure VLAN:
-		(a) modprobe 8021q
-		(b) vconfig add <interface> <vlanid>
-		(c) vconfig set_flag <interface>.<vlanid> 1 0
-		(d) ifconfig <interface>.<vlanid> <ip> netmask 255.255.255.0 broadcast <ip mask> up
-
-	Default Configuraton:
-		(a) Rx vlan filter is disabled.
-		(b) Rx valn offload (vlan stripping) is disabled.
-		(c) Tx vlan offload is enabled.
-
-10. Use the below command to insert the kernel module for passing pause frames to application except pause frames from PHY:
-
-	#insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn  macX_filter_phy_pause=x1,x2,...xn
-
-	argument info:
-		tc956x_eth_ports_bdf: Refer section 2 for the details.
-		macX_interface: Array of Filter PHY pause frames arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-		Filter PHY pause frames alone and pass Link partner pause frames to application for BDfs provided.
-		x = [0: DISABLE (default), 1: ENABLE]
-
-	If invalid values are passed as kernel module parameter, the default value will be selected.
-
-11. Use below commands to check WOL support and its type:
-	#ethtool <interface>
-
-12. WOL command Usage :
-	#ethtool -s <interface> wol <type - p/g/d>.
-
-	Supported WOL options and meaning:
-	
-	| Option | Meaning |
-	| :-----: | :----: |
-	|  p	  |  Wake on phy activity |
-	|  g	  |  Wake on MagicPacket(tm) |
-	|  d	  |  Disable (wake on nothing). (Default) |
-
-	Example - To wake on phy activity and magic packet use :
-	ethtool -s eth0 wol pg
-
-13. Use the below command to insert the kernel module to enable EEE and configure LPI Auto Entry timer:
-
-	#insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn  macX_eee_enable=x1,x2,...xn macX_lpi_timer=y1,y2,...yn
-
-	argument info:
-		tc956x_eth_ports_bdf: Refer section 2 for the details.
-		macX_eee_enable: Array of Enable/Disable EEE arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-		x = [0: DISABLE (default), 1: ENABLE]
-
-		macX_lpi_timer: Array of LPI Automatic Entry Timer arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-		y = [0..1048568 (us)]  default is 600 (us)
-
-	In addition to above module parameter, use below ethtool command to configure EEE and LPI auto entry timer.
-	#ethtool --set-eee <interfcae> eee <on/off> tx-timer <time in us>
-	Example: #ethtool --set-eee enp7s0f0 eee on tx-timer 10000
-
-	Use below command to check the status of EEE configuration
-	#ethtool --show-eee <interface>
+    In addition to the above module parameter, use the below `ethtool` command to configure EEE and the LPI auto entry timer.
+    ```bash
+    ethtool --set-eee <interface> eee <on/off> tx-timer <time in us>
+    # Example:
+    ethtool --set-eee enp7s0f0 eee on tx-timer 10000
+    ```
+    Use the below command to check the status of the EEE configuration:
+    ```bash
+    ethtool --show-eee <interface>
+    ```
 
 14. Use the below command to insert the kernel module for RX Queue size, Flow control thresholds & TX Queue size configuration.
+    ```bash
+    insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn \
+      macX_rxq0_size=x1,x2,...xn macX_rxq0_rfd=x1,x2,...xn macX_rxq0_rfa=x1,x2,...xn \
+      macX_rxq1_size=x1,x2,...xn macX_rxq1_rfd=x1,x2,...xn macX_rxq1_rfa=x1,x2,...xn \
+      macX_txq0_size=x1,x2,...xn macX_txq1_size=x1,x2,...xn
+    ```
+    Refer to the User Manual for details about the configuration of the above module parameters.
+    **Note:**
+    1.  Please configure flow control thresholds (RFD & RFA) as per Queue size (Default values are for the Default Queue size which is 18KB).
+    2.  If invalid values are passed as a kernel module parameter, the default value will be selected for Queue Sizes, and for Flow control, 80% of the Queue size will be used.
 
-	#insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_rxq0_size=x1,x2,...xn macX_rxq0_rfd=x1,x2,...xn macX_rxq0_rfa=x1,x2,...xn
-		macX_rxq1_size=x1,x2,...xn macX_rxq1_rfd=x1,x2,...xn macX_rxq1_rfa=x1,x2,...xn
-		macX_txq0_size=x1,x2,...xn macX_txq1_size=x1,x2,...xn
-	Refer User Manual for details about configuration of above module parameters.
-
-	Note:
-	1. Please configure flow control thresholds (RFD & RFA) as per Queue size (Default values are for Default Queue size which is 18KB).
-	2. If invalid values are passed as kernel module parameter, the default value will be selected for Queue Sizes and for Flow control 80% of Queue size will be used.
-
-15. Use the below command to insert the kernel module for counting Link partner pause frames and output to ethtool:
-
-	#insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_en_lp_pause_frame_cnt=x1,x2,...xn
-
-	Refer User Manual for details about configuration of above module parameters.
-
-	Note: It is required to enable kernel module parameter "macX_filter_phy_pause" along with this module parameter to count link partner pause frames.
+15. Use the below command to insert the kernel module for counting Link partner pause frames and outputting to `ethtool`:
+    ```bash
+    insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_en_lp_pause_frame_cnt=x1,x2,...xn
+    ```
+    Refer to the User Manual for details about the configuration of the above module parameters.
+    **Note:** It is required to enable the kernel module parameter `macX_filter_phy_pause` along with this module parameter to count link partner pause frames.
 
 16. Use the below command to insert the kernel module for power saving at Link Down state:
+    ```bash
+    insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_power_save_at_link_down=x1,x2,...xn
+    ```
+    **Argument Info:**
+    *   `macX_power_save_at_link_down`: Array of Enable Power saving during Link down arranged in order according to the BDFs provided in the module parameter `tc956x_eth_ports_bdf`. The same value is to be assigned for Port-0 and Port-1 - default is `0`.
+        *   Note: If Port-0 and Port-1 have different values, power saving is not guaranteed.
+        *   `x = [0: DISABLE (default), 1: ENABLE]`
 
-	#insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_power_save_at_link_down=x1,x2,...xn
+17. A `debugfs` directory will be created for each port in the debug path of the kernel (i.e., `/sys/kernel/debug` on an x86 Linux platform). Under the port-specific debugfs directory (`tc956x_port0_debug`/`tc956x_port1_debug`), module-specific files are created to get a dump of debug information related to the module.
+    **Example Files:**
+    *   `config_stats`: Registers related to the CONFIG module
+    *   `mac_stats`: Registers related to the MAC block
+    *   `mtl_stats`: Registers related to the MTL block
+    *   `dma_stats`: Registers related to the DMA block
+    *   `m3_stats`: Debug information related to M3 Firmware
+    *   `interrupt_stats`: Registers related to MSI & INT blocks
+    *   `other_stats`: Information related to Driver & Firmware, TAMAP, Flexible Receiver Parser, MMC counters
+    *   `reg_dump`: Dumps all registers of MAC, MTL, DMA, and CNFG modules
 
-	argument info:
-		macX_power_save_at_link_down: Array of Enable Power saving during Link down arranged in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-        Same value to be assigned for Port-0 and Port-1 - default is 0
-		Note: If Port-0 and Port-1 have different values, power saving is not gauranteed\	
-		x = [0: DISABLE (default), 1: ENABLE]
-
-17. Debufs directory will be created for port specific in debug path of kernel i.e. "/sys/kernel/debug" in x86 Linux platfrom.
-    Under port specific debugfs directory (tc956x_port0_debug/tc956x_port1_debug), module specific files are created to get dump of debug information related to module.
-	Example: 
-	config_stats	--> Registers related to CONFIG module
-	mac_stats	--> Registers related to MAC block
-	mtl_stats	--> Registers related to MTL block
-	dma_stats	--> Registers related to DMA block
-	m3_stats	--> Debug information related to M3 Firmware
-	interrupt_stats	--> Registers related to MSI & INT blocks
-	other_stats	--> Information related to Driver & Firmware, TAMAP, Flexible Receiver Parser, mmc counters
-	reg_dump	--> Dumps all registers of MAC, MTL, DMA and CNFG modules
-    
-    Information will be printed to "dmesg" console, when files related to specific module are invoked.
-    
-    debugfs file can be invoked by using "cat" command.
-	Example:
-	cat /sys/kernel/debug/tc956x_port0_debug/config_stats
+    Information will be printed to the `dmesg` console when files related to a specific module are invoked. A `debugfs` file can be invoked by using the `cat` command.
+    **Example:**
+    ```bash
+    cat /sys/kernel/debug/tc956x_port0_debug/config_stats
+    ```
 
 18. Use the below command to insert the kernel module for SW reset during link down.
+    ```bash
+    insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_link_down_macrst=x1,x2,...xn
+    ```
+    **Argument Info:**
+    *   `macX_link_down_macrst`: Array of MAC Link down reset settings according to the BDFs provided in `tc956x_eth_ports_bdf`.
+        *   MAC reset for PHY Clock loss during Link Down - default is `1` (ENABLE) for all Port0 and `0` (DISABLE) for all Port1.
+        *   Supported values: `[0: DISABLE, 1: ENABLE]`
 
-	#insmod tc956x_pcie_eth.ko tc956x_eth_ports_bdf=BDF1,BDF2,...BDFn macX_link_down_macrst=x1,x2,...xn
+19. To disable MDIO and remove PHY dependency in the driver, use the module parameter `macX_no_mdio_no_phy`. Supported options are as follows:
+    *   `0`: `PHY_ON_MDIO_ON` /* PHY and MDIO available */ (Default)
+    *   `1`: `PHY_ON_MDIO_OFF` /* PHY available and MDIO not available */ (Not supported currently)
+    *   `2`: `PHY_OFF_MDIO_ON` /* PHY not available and MDIO available */ (Not supported currently)
+    *   `3`: `PHY_OFF_MDIO_OFF` /* PHY not available and MDIO not available */
 
-	argument info:
-	macX_link_down_macrst: Array of MAC Link down reset setting in order according to the BDFs provided in module parameter 'tc956x_eth_ports_bdf'
-		MAC reset for PHY Clock loss during Link Down - default is 1 (ENABLE) for all Port0 and 0 (DISABLE) for all Port1,
-		Supported values [0: DISABLE, 1: ENABLE]
-
-19. To disable MDIO and remove PHY dependency in the driver, use module parameter "macX_no_mdio_no_phy".
-	Supported options are as follows.
-	0: PHY_ON_MDIO_ON   /* PHY and MDIO available */ /* Default */
-	1: PHY_ON_MDIO_OFF  /* PHY available and MDIO not available */ /* Not supported currently */
-	2: PHY_OFF_MDIO_ON  /* PHY not available and MDIO available */ /* Not supported currrently */
-	3: PHY_OFF_MDIO_OFF /* PHY not available and MDIO not available */
-
-# Release Versions:
+# Release Versions
 
 ## TC956X_Host_Driver_20210326_V_01-00:
 
