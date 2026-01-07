@@ -3075,6 +3075,20 @@ static int tc956xmac_pci_probe(struct pci_dev *pdev,
 	res.device_num = get_tc956x_index(pdev);
 	dev_info(&(pdev->dev), "tc956x_eth_ports_bdf matched device index for this device is: %d and Port number: %d\n", res.device_num, res.port_num);
 
+	/*
+	 * Convenience for probe-order mode:
+	 * Allow users to pass a single macX_interface=<val> and apply it to all
+	 * probed devices when tc956x_eth_ports_bdf[0] == 0xFFFF.
+	 *
+	 * macX_interface[] defaults to 0xFF; if per-index value isn't provided,
+	 * copy index 0 as the global default.
+	 */
+	if ((tc956x_eth_ports_bdf[0] == 0xFFFF) &&
+	    (res.device_num <= (TC956X_TOT_CASCADE_DEV * 2)) &&
+	    (macX_interface[0] != 0xFF) &&
+	    (macX_interface[res.device_num] == 0xFF))
+		macX_interface[res.device_num] = macX_interface[0];
+
 	if (res.device_num == 0xFF) {
 		res.device_num = (TC956X_TOT_CASCADE_DEV*2); /* Use the slot at the end of array for non-matching devices */
 
@@ -3082,9 +3096,13 @@ static int tc956xmac_pci_probe(struct pci_dev *pdev,
 			value provided in module param not matching with the device BDF.\
 			Use the device number as %d and set other associated module parameter values to default\n", res.device_num);
 
+
+		// macX_interface[res.device_num]					= ENABLE_USXGMII_10G_INTERFACE;
+		// portX_c45_state[res.device_num]					= 1;
+
 		macX_interface[res.device_num]					= ENABLE_SGMII_INTERFACE;
-		portX_mdc[res.device_num]						= 0xFF;
 		portX_c45_state[res.device_num]					= 0xFF;
+		portX_mdc[res.device_num]						= 0xFF;
 		portX_phyaddr[res.device_num]					= 0;
 		macX_link_down_macrst[res.device_num]			= 0xFF;
 		macX_no_mdio_no_phy[res.device_num]				= PHY_ON_MDIO_ON;
@@ -3303,7 +3321,7 @@ static int tc956xmac_pci_probe(struct pci_dev *pdev,
 			NMSGPR_INFO(&(pdev->dev), "%s: ERROR Invalid macX_interface parameter passed. Restoring to default interface %d for the device index: %d\n",
 			__func__, macX_interface[res.device_num], res.device_num);
 		} else if ((macX_interface[res.device_num] > MAX_INTERFACE) && (macX_interface[res.device_num] <= ENABLE_USXGMII_2_5G_INTERFACE)) {
-				macX_interface[res.device_num] = ENABLE_USXGMII_10G_INTERFACE;
+			macX_interface[res.device_num] = ENABLE_USXGMII_10G_INTERFACE;
 			NMSGPR_INFO(&(pdev->dev), "%s: ERROR Un-supported USXGMII mode passed for macX_interface parameter. Restoring to default interface %d for the device index: %d\n",
 			__func__, macX_interface[res.device_num], res.device_num);
 		}
