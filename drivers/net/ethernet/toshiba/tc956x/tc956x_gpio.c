@@ -22,6 +22,45 @@ static inline struct tc956x_gpio *to_tc956x_gpio(struct gpio_chip *chip)
 	return gpiochip_get_data(chip);
 }
 
+static int tc956x_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
+{
+	struct tc956xmac_priv *priv = to_tc956x_gpio(chip)->priv;
+	unsigned int bit = offset;
+	u32 reg;
+
+	if (offset < GPIO_32)
+		reg = readl(priv->ioaddr + GPIOE0_OFFSET);
+	else {
+		reg = readl(priv->ioaddr + GPIOE1_OFFSET);
+		bit -= GPIO_32;
+	}
+
+	return (reg & BIT(bit)) ? GPIO_LINE_DIRECTION_IN :
+				  GPIO_LINE_DIRECTION_OUT;
+}
+
+static int tc956x_gpio_get(struct gpio_chip *chip, unsigned int offset)
+{
+	struct tc956xmac_priv *priv = to_tc956x_gpio(chip)->priv;
+	unsigned int bit = offset;
+	u32 reg;
+
+	if (offset < GPIO_32) {
+		reg = readl(priv->ioaddr +
+			    (tc956x_gpio_get_direction(chip, offset) ==
+			     GPIO_LINE_DIRECTION_OUT ?
+			     GPIOO0_OFFSET : GPIOI0_OFFSET));
+	} else {
+		reg = readl(priv->ioaddr +
+			    (tc956x_gpio_get_direction(chip, offset) ==
+			     GPIO_LINE_DIRECTION_OUT ?
+			     GPIOO1_OFFSET : GPIOI1_OFFSET));
+		bit -= GPIO_32;
+	}
+
+	return !!(reg & BIT(bit));
+}
+
 static int tc956x_gpio_direction_output(struct gpio_chip *chip,
 					unsigned int offset, int value)
 {
@@ -33,13 +72,13 @@ static int tc956x_gpio_direction_output(struct gpio_chip *chip,
 static void tc956x_gpio_set(struct gpio_chip *chip, unsigned int offset,
 			    int value)
 {
-    tc956x_GPIO_OutputConfigPin(to_tc956x_gpio(chip)->priv,
-					   offset, value ? 1 : 0);
+	tc956x_GPIO_OutputConfigPin(to_tc956x_gpio(chip)->priv,
+				    offset, value ? 1 : 0);
 	return;
 }
 #else
 static int tc956x_gpio_set(struct gpio_chip *chip, unsigned int offset,
-			    int value)
+			   int value)
 {
 	return tc956x_GPIO_OutputConfigPin(to_tc956x_gpio(chip)->priv,
 					   offset, value ? 1 : 0);
@@ -58,7 +97,9 @@ int tc956x_gpio_register(struct tc956xmac_priv *priv)
 	tgpio->chip.label		= "tc956x-gpio";
 	tgpio->chip.parent		= priv->device;
 	tgpio->chip.owner		= THIS_MODULE;
+	tgpio->chip.get_direction	= tc956x_gpio_get_direction;
 	tgpio->chip.direction_output	= tc956x_gpio_direction_output;
+	tgpio->chip.get			= tc956x_gpio_get;
 	tgpio->chip.set			= tc956x_gpio_set;
 	tgpio->chip.base		= -1;
 	tgpio->chip.ngpio		= TC956X_GPIO_COUNT;
