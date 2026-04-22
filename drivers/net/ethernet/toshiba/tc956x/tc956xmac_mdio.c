@@ -620,6 +620,20 @@ int tc956xmac_mdio_reset(struct mii_bus *bus)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct device_node *
+tc956xmac_of_get_mdio_node(struct tc956xmac_priv *priv)
+{
+	if (priv->plat->mdio_node)
+		return of_node_get(priv->plat->mdio_node);
+
+	if (!priv->device->of_node)
+		return NULL;
+
+	return of_get_child_by_name(priv->device->of_node, "mdio");
+}
+#endif
+
 /**
  * tc956xmac_mdio_register
  * @ndev: net device structure
@@ -631,8 +645,9 @@ int tc956xmac_mdio_register(struct net_device *ndev)
 	struct mii_bus *new_bus;
 	struct tc956xmac_priv *priv = netdev_priv(ndev);
 	struct tc956xmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
-	struct device_node *mdio_node = priv->plat->mdio_node;
+	struct device_node *mdio_node = NULL;
 	struct device *dev = ndev->dev.parent;
+	bool has_mdio_node = false;
 	int addr, found, start_addr;
 
 	if (!mdio_bus_data)
@@ -677,15 +692,31 @@ int tc956xmac_mdio_register(struct net_device *ndev)
 	if (mdio_bus_data->needs_reset)
 		new_bus->reset = &tc956xmac_mdio_reset;
 
+#ifdef CONFIG_OF
+	mdio_node = tc956xmac_of_get_mdio_node(priv);
+#else
+	mdio_node = priv->plat->mdio_node;
+#endif
+	has_mdio_node = !!mdio_node;
+
 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%x",
 		 new_bus->name, priv->plat->bus_id);
 	new_bus->priv = ndev;
 	new_bus->phy_mask = mdio_bus_data->phy_mask;
 	new_bus->parent = priv->device;
 #ifdef TC956X
-	err = mdiobus_register(new_bus);
+#ifdef CONFIG_OF
+	if (mdio_node)
+		err = of_mdiobus_register(new_bus, mdio_node);
+	else
+#endif
+		err = mdiobus_register(new_bus);
 #else
 	err = of_mdiobus_register(new_bus, mdio_node);
+#endif
+#ifdef CONFIG_OF
+	of_node_put(mdio_node);
+	mdio_node = NULL;
 #endif
 	if (err != 0) {
 		err = -ENODEV;
@@ -702,7 +733,7 @@ int tc956xmac_mdio_register(struct net_device *ndev)
 #endif
 
 #ifndef TC956X
-	if (priv->plat->phy_node || mdio_node || priv->plat->has_xgmac)
+	if (priv->plat->phy_node || has_mdio_node || priv->plat->has_xgmac)
 		goto bus_register_done;
 #endif
 	found = 0;
@@ -836,7 +867,7 @@ int tc956xmac_mdio_register(struct net_device *ndev)
 		}
 	}
 
-	if (!found && !mdio_node) {
+	if (!found && !has_mdio_node) {
 		dev_warn(dev, "No PHY found\n");
 		goto bus_no_phy_found;
 	}

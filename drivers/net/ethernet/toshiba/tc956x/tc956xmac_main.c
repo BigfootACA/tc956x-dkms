@@ -4403,6 +4403,16 @@ static void tc956xmac_defer_phy_isr_work(struct work_struct *work)
 	DBGPR_FUNC(priv->device, "Exit: tc956xmac_defer_phy_isr_work\n");
 }
 
+static struct device_node *tc956xmac_get_phylink_node(struct tc956xmac_priv *priv)
+{
+#ifndef TC956X_SRIOV_VF
+	if (priv->plat->phylink_node)
+		return priv->plat->phylink_node;
+#endif
+
+	return priv->device->of_node;
+}
+
 /**
  * tc956xmac_init_phy - PHY initialization
  * @dev: net device structure
@@ -4424,7 +4434,7 @@ static int tc956xmac_init_phy(struct net_device *dev)
 	struct ethtool_eee edata;
 #endif
 
-	node = priv->plat->phylink_node;
+	node = tc956xmac_get_phylink_node(priv);
 
 	if (priv->dma_cap.sma_mdio == 1)
 		phydev = mdiobus_get_phy(priv->mii, addr);
@@ -4639,7 +4649,8 @@ static void tc956xmac_phylink_fixed_state(struct net_device *dev, struct phylink
 
 static int tc956xmac_phy_setup(struct tc956xmac_priv *priv)
 {
-	struct fwnode_handle *fwnode = of_fwnode_handle(priv->plat->phylink_node);
+	struct fwnode_handle *fwnode =
+		of_fwnode_handle(tc956xmac_get_phylink_node(priv));
 	int mode = priv->plat->phy_interface;
 	struct phylink *phylink;
 
